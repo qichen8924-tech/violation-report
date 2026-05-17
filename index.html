@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>安全吹哨人</title>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --primary:#1677ff;
+  --primary-light:#e6f4ff;
+  --danger:#ff4d4f;
+  --danger-light:#fff2f0;
+  --success:#52c41a;
+  --success-light:#f6ffed;
+  --warning:#faad14;
+  --warning-light:#fffbe6;
+  --text1:#1d2129;
+  --text2:#4e5969;
+  --text3:#86909c;
+  --bg:#f2f3f5;
+  --white:#fff;
+  --border:#e5e6eb;
+  --radius:10px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh;font-size:14px}
+
+/* ===== 通用 ===== */
+.page{display:none;flex-direction:column;min-height:100vh}
+.page.active{display:flex}
+.header{background:var(--primary);color:#fff;padding:44px 16px 14px;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;font-weight:600;text-align:center}
+.header .back-btn{position:absolute;left:14px;top:46px;font-size:14px;color:#fff;opacity:.9;background:none;border:none;cursor:pointer;padding:4px 8px}
+.content{flex:1;padding:12px;overflow-y:auto;padding-bottom:calc(80px + var(--safe-bottom))}
+
+/* ===== 首页 ===== */
+#page-home .header{background:linear-gradient(135deg,#1677ff,#0958d9)}
+.home-logo{text-align:center;padding:32px 0 24px}
+.home-logo .icon{width:72px;height:72px;background:var(--white);border-radius:20px;display:inline-flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:12px}
+.home-logo h2{font-size:22px;font-weight:700;color:var(--text1)}
+.home-logo p{font-size:13px;color:var(--text2);margin-top:4px}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.menu-card{background:var(--white);border-radius:16px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
+.menu-card:active{background:#f5f7ff}
+.menu-card.offline{border-color:var(--primary);background:var(--primary-light)}
+.menu-card .card-icon{font-size:36px;margin-bottom:12px}
+.menu-card h3{font-size:15px;font-weight:600;color:var(--text1);text-align:center;margin-bottom:4px}
+.menu-card p{font-size:12px;color:var(--text2);text-align:center;line-height:1.5}
+.menu-card .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;margin-top:8px;font-weight:500}
+.tag-xlsx{background:#e6fffb;color:#08979c}
+.tag-docx{background:#f9f0ff;color:#722ed1}
+.section-title{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 10px;padding-left:4px;text-transform:uppercase;letter-spacing:.5px}
+.records-list{background:var(--white);border-radius:var(--radius);overflow:hidden}
+.record-item{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;position:relative;transition:background .2s}
+.record-item:last-child{border-bottom:none}
+.record-item:active{background:var(--bg)}
+.record-dot{width:8px;height:8px;border-radius:50%;margin-right:12px;flex-shrink:0}
+.dot-offline{background:var(--primary)}
+.dot-online{background:#722ed1}
+.record-info{flex:1;min-width:0}
+.record-name{font-size:14px;font-weight:500;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.record-actions{display:flex;gap:8px}
+.btn-small{font-size:12px;padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:500}
+.btn-view{background:var(--primary-light);color:var(--primary)}
+.btn-del{background:var(--danger-light);color:var(--danger)}
+.empty-tip{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+
+/* ===== 表单 ===== */
+.form-card{background:var(--white);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.form-card-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.form-card-header .icon{font-size:16px}
+.form-card-header span{font-size:14px;font-weight:600;color:var(--text1)}
+.form-item{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.form-item:last-child{border-bottom:none}
+.form-label{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.form-label .req{color:var(--danger);font-size:11px}
+.form-input,.form-textarea,.form-select{width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text1);background:var(--white);outline:none;font-family:inherit;transition:border-color .2s}
+.form-input:focus,.form-textarea:focus,.form-select:focus{border-color:var(--primary)}
+.form-textarea{resize:none;min-height:72px;line-height:1.6}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2386909c' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 12px center;background-size:14px;padding-right:36px}
+.input-with-btn{display:flex;gap:8px}
+.input-with-btn .form-input{flex:1}
+.btn-ocr{flex-shrink:0;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:0 12px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.btn-ocr:active{background:#0958d9}
+.btn-ocr .ocr-icon{font-size:16px}
+
+/* 照片上传 */
+.photo-upload{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;align-items:flex-start}
+.photo-wrap{position:relative;width:120px;height:120px;border-radius:8px;overflow:hidden;flex-shrink:0}
+.photo-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-del{position:absolute;top:2px;right:2px;width:24px;height:24px;background:rgba(0,0,0,.55);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;z-index:2;border:none}
+.photo-replace{position:absolute;bottom:0;left:0;right:0;height:24px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;border:none}
+.photo-add{width:120px;height:120px;border-radius:8px;border:1.5px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--bg);color:var(--text3);font-size:12px;gap:4px;flex-shrink:0}
+.photo-add-icon{font-size:28px;color:var(--text3)}
+.photo-add.hidden{display:none}
+input[type=file]{display:none}
+
+/* 分段选择 */
+.seg-group{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg-item{flex:1;padding:9px 4px;text-align:center;font-size:13px;border-right:1px solid var(--border);cursor:pointer;color:var(--text2);transition:background .15s,color .15s;background:var(--white)}
+.seg-item:last-child{border-right:none}
+.seg-item.active{background:var(--primary);color:#fff;font-weight:500}
+
+/* 底部按钮 */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:var(--white);border-top:1px solid var(--border);display:flex;gap:12px;padding-bottom:calc(12px + var(--safe-bottom));z-index:99}
+.btn-main{flex:1;padding:13px;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:opacity .2s}
+.btn-main:active{opacity:.8}
+.btn-preview{background:var(--bg);color:var(--text1)}
+.btn-generate{background:var(--primary);color:#fff}
+.btn-generate.docx{background:#722ed1}
+
+/* ===== 预览页 ===== */
+.preview-card{background:var(--white);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.preview-row{display:flex;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.preview-row:last-child{border-bottom:none}
+.preview-key{color:var(--text3);width:90px;flex-shrink:0}
+.preview-val{color:var(--text1);flex:1;word-break:break-all;line-height:1.6}
+.photo-preview-grid{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px}
+.photo-preview-grid img{width:calc(50% - 4px);border-radius:8px;object-fit:cover}
+
+/* ===== Toast ===== */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* ===== 进度 ===== */
+.loading-mask{position:fixed;inset:0;background:rgba(255,255,255,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;display:none}
+.loading-mask.show{display:flex}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{margin-top:12px;font-size:14px;color:var(--text2)}
+
+/* ===== 模态框 ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:none;align-items:flex-end}
+.modal-mask.show{display:flex}
+.modal-box{background:var(--white);border-radius:20px 20px 0 0;width:100%;padding:20px 16px;max-height:80vh;overflow-y:auto;padding-bottom:calc(16px + var(--safe-bottom))}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px;text-align:center}
+.modal-img{width:100%;border-radius:10px;margin-bottom:12px}
+.modal-btns{display:flex;gap:10px;margin-top:12px}
+.modal-btn{flex:1;padding:12px;border-radius:10px;border:none;font-size:15px;font-weight:500;cursor:pointer}
+.modal-btn-cancel{background:var(--bg);color:var(--text1)}
+.modal-btn-confirm{background:var(--primary);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ===== 首页 ===== -->
+<div id="page-home" class="page active">
+  <div class="header" style="background:#1677ff">
+    <h1>安全吹哨人</h1>
+  </div>
+  <div class="content" style="padding-top:0">
+    <div class="home-logo">
+      <div class="icon">🚨</div>
+      <h2>安全吹哨人</h2>
+      <p>违章记录管理系统 · 镇安配电网监理</p>
+    </div>
+    <div class="section-title">选择违章类型</div>
+    <div class="menu-grid">
+      <div class="menu-card" onclick="goPage('page-offline')">
+        <div class="card-icon">📋</div>
+        <h3>线下违章</h3>
+        <p>现场实地违章记录，含违章照片</p>
+        <span class="tag tag-xlsx">生成 Excel</span>
+      </div>
+      <div class="menu-card" onclick="goPage('page-online')">
+        <div class="card-icon">🖥️</div>
+        <h3>线上违章</h3>
+        <p>远程视频监控违章登记</p>
+        <span class="tag tag-docx">生成 Word</span>
+      </div>
+    </div>
+    <div class="section-title">最近记录</div>
+    <div class="records-list" id="records-list">
+      <div class="empty-tip">暂无记录，点击上方按钮新建</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 线下违章表单 ===== -->
+<div id="page-offline" class="page">
+  <div class="header">
+    <button class="back-btn" onclick="goPage('page-home')">← 返回</button>
+    <h1>线下违章记录</h1>
+  </div>
+  <div class="content" id="offline-content">
+
+    <div class="form-card">
+      <div class="form-card-header"><span class="icon">📷</span><span>违章照片</span></div>
+      <div class="form-item">
+        <div class="form-label">违章现场照片 <span style="font-size:11px;color:#86909c">（限1张，点击图片可删除）</span></div>
+        <div class="photo-upload" id="photos-violation">
+          <label class="photo-add" for="file-violation" id="btn-violation">
+            <span class="photo-add-icon">📷</span>
+            <span>点击上传</span>
+          </label>
+          <input type="file" id="file-violation" accept="image/*" onchange="setPhoto('photos-violation','file-violation','violation')">
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">整改后照片 <span style="font-size:11px;color:#86909c">（限1张，点击图片可删除）</span></div>
+        <div class="photo-upload" id="photos-rectify">
+          <label class="photo-add" for="file-rectify" id="btn-rectify">
+            <span class="photo-add-icon">📷</span>
+            <span>点击上传</span>
+          </label>
+          <input type="file" id="file-rectify" accept="image/*" onchange="setPhoto('photos-rectify','file-rectify','rectify')">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-header"><span class="icon">📝</span><span>基本信息</span></div>
+      <div class="form-item">
+        <div class="form-label">作业现场名称 <span class="req">*</span></div>
+        <div class="input-with-btn">
+          <input class="form-input" id="off-site" type="text" placeholder="请输入或拍照识别">
+          <button class="btn-ocr" onclick="ocrRecognize('off-site','violation')"><span class="ocr-icon">📷</span>识别</button>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">存在违章 <span class="req">*</span></div>
+        <textarea class="form-textarea" id="off-violation" placeholder="描述违章情况..." rows="3"></textarea>
+      </div>
+      <div class="form-item">
+        <div class="form-label">依据条款</div>
+        <div class="input-with-btn">
+          <input class="form-input" id="off-clause" type="text" placeholder="请输入或拍照识别">
+          <button class="btn-ocr" onclick="ocrRecognize('off-clause','clause')"><span class="ocr-icon">📷</span>识别</button>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">备注（日期）</div>
+        <input class="form-input" id="off-remark" type="text" readonly>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-header"><span class="icon">🔖</span><span>违章分类</span></div>
+      <div class="form-item">
+        <div class="form-label">违章类型</div>
+        <div class="seg-group" id="seg-type">
+          <div class="seg-item active" onclick="setSeg('seg-type',this,'管理违章')">管理违章</div>
+          <div class="seg-item" onclick="setSeg('seg-type',this,'行为违章')">行为违章</div>
+          <div class="seg-item" onclick="setSeg('seg-type',this,'装置违章')">装置违章</div>
+          <div class="seg-item" onclick="setSeg('seg-type',this,'其他')">其他</div>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">违章性质</div>
+        <div class="seg-group" id="seg-nature">
+          <div class="seg-item active" onclick="setSeg('seg-nature',this,'一般违章')">一般违章</div>
+          <div class="seg-item" onclick="setSeg('seg-nature',this,'严重违章')">严重违章</div>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">整改情况</div>
+        <div class="seg-group" id="seg-rectify">
+          <div class="seg-item active" onclick="setSeg('seg-rectify',this,'已整改')">已整改</div>
+          <div class="seg-item" onclick="setSeg('seg-rectify',this,'未整改')">未整改</div>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">主配网</div>
+        <div class="seg-group" id="seg-network">
+          <div class="seg-item active" onclick="setSeg('seg-network',this,'配网')">配网</div>
+          <div class="seg-item" onclick="setSeg('seg-network',this,'主网')">主网</div>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">序号</div>
+        <div class="seg-group" id="seg-seq">
+          <div class="seg-item active" onclick="setSeg('seg-seq',this,'1')">1</div>
+          <div class="seg-item" onclick="setSeg('seg-seq',this,'2')">2</div>
+          <div class="seg-item" onclick="setSeg('seg-seq',this,'3')">3</div>
+          <div class="seg-item" onclick="setSeg('seg-seq',this,'4')">4</div>
+          <div class="seg-item" onclick="setSeg('seg-seq',this,'5')">5</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main btn-preview" onclick="previewOffline()">预览</button>
+    <button class="btn-main btn-generate" onclick="generateExcel()">生成 Excel</button>
+  </div>
+</div>
+
+<!-- ===== 线上违章表单 ===== -->
+<div id="page-online" class="page">
+  <div class="header" style="background:#722ed1">
+    <button class="back-btn" onclick="goPage('page-home')">← 返回</button>
+    <h1>线上违章记录</h1>
+  </div>
+  <div class="content" id="online-content">
+
+    <div class="form-card">
+      <div class="form-card-header"><span class="icon">📋</span><span>基本信息</span></div>
+      <div class="form-item">
+        <div class="form-label">序号</div>
+        <input class="form-input" id="on-seq" type="number" value="1" min="1" max="999">
+      </div>
+      <div class="form-item">
+        <div class="form-label">被检查单位</div>
+        <div class="input-with-btn">
+          <select class="form-select" id="on-unit" style="flex:1">
+            <option value="国网镇安县供电公司">国网镇安县供电公司</option>
+            <option value="其他">其他（手动填写）</option>
+          </select>
+        </div>
+        <input class="form-input" id="on-unit-custom" type="text" placeholder="请输入单位名称" style="display:none;margin-top:6px" oninput="syncCustomUnit()">
+      </div>
+      <div class="form-item">
+        <div class="form-label">检查方式</div>
+        <div class="seg-group" id="seg-method">
+          <div class="seg-item active" onclick="setSeg('seg-method',this,'现场检查')">现场检查</div>
+          <div class="seg-item" onclick="setSeg('seg-method',this,'远程视频')">远程视频</div>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">作业现场 <span class="req">*</span></div>
+        <div class="input-with-btn">
+          <input class="form-input" id="on-site" type="text" placeholder="请输入或拍照识别">
+          <button class="btn-ocr" onclick="ocrRecognize('on-site','site')"><span class="ocr-icon">📷</span>识别</button>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">发现违章情况 <span class="req">*</span></div>
+        <textarea class="form-textarea" id="on-violation" placeholder="描述违章情况..." rows="3"></textarea>
+      </div>
+      <div class="form-item">
+        <div class="form-label">违反规程条例</div>
+        <div class="input-with-btn">
+          <input class="form-input" id="on-clause" type="text" placeholder="请输入或拍照识别">
+          <button class="btn-ocr" onclick="ocrRecognize('on-clause','clause')"><span class="ocr-icon">📷</span>识别</button>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-label">时间</div>
+        <input class="form-input" id="on-time" type="text" readonly>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-header"><span class="icon">📷</span><span>违章影像资料</span></div>
+      <div class="form-item">
+        <div class="form-label">违章截图/照片 <span style="font-size:11px;color:#86909c">（限1张，点击图片可删除）</span></div>
+        <div class="photo-upload" id="photos-online">
+          <label class="photo-add" for="file-online" id="btn-online">
+            <span class="photo-add-icon">📷</span>
+            <span>点击上传</span>
+          </label>
+          <input type="file" id="file-online" accept="image/*" onchange="setPhoto('photos-online','file-online','online')">
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main btn-preview" onclick="previewOnline()">预览</button>
+    <button class="btn-main btn-generate docx" onclick="generateWord()">生成 Word</button>
+  </div>
+</div>
+
+<!-- ===== 预览页 ===== -->
+<div id="page-preview" class="page">
+  <div class="header" id="preview-header">
+    <button class="back-btn" id="preview-back">← 返回</button>
+    <h1 id="preview-title">内容预览</h1>
+  </div>
+  <div class="content" id="preview-content"></div>
+  <div class="bottom-bar">
+    <button class="btn-main btn-preview" id="preview-edit-btn">修改</button>
+    <button class="btn-main btn-generate" id="preview-gen-btn">确认生成</button>
+  </div>
+</div>
+
+<!-- ===== OCR 模态框 ===== -->
+<div class="modal-mask" id="ocr-modal" onclick="closeOcr(event)">
+  <div class="modal-box">
+    <div class="modal-title">📷 图片识别</div>
+    <div id="ocr-tip" style="font-size:12px;color:#86909c;margin-bottom:10px;line-height:1.5"></div>
+    <div id="ocr-use-existing" style="margin-bottom:12px;display:none">
+      <div style="font-size:13px;color:#86909c;margin-bottom:6px">已检测到已上传照片，可直接使用：</div>
+      <button class="btn-ocr" onclick="useExistingPhoto()" style="width:100%;padding:10px;justify-content:center;font-size:14px">使用已上传照片识别</button>
+    </div>
+    <label style="display:block;cursor:pointer">
+      <div class="photo-add" style="width:100%;height:120px;border-radius:10px" id="ocr-upload-area">
+        <span class="photo-add-icon" style="font-size:36px">📷</span>
+        <span style="font-size:14px;margin-top:4px" id="ocr-upload-label">点击选择新图片识别</span>
+      </div>
+      <input type="file" id="ocr-file" accept="image/*" onchange="handleOcrFile()">
+    </label>
+    <img id="ocr-preview" class="modal-img" style="display:none">
+    <div id="ocr-result-area" style="display:none">
+      <div style="font-size:13px;color:#86909c;margin-bottom:6px">识别结果（可编辑）：</div>
+      <textarea class="form-textarea" id="ocr-result-text" rows="3" style="min-height:60px"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-cancel" onclick="closeOcr(null)">取消</button>
+      <button class="modal-btn modal-btn-confirm" id="ocr-confirm-btn" onclick="applyOcr()" style="display:none">填入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast & Loading -->
+<div class="toast" id="toast"></div>
+<div class="loading-mask" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">正在生成文件...</div>
+</div>
+
+<script>
+// ========== 全局状态 ==========
+const STATE = {
+  offlinePhotos: {violation: [], rectify: []},
+  onlinePhotos: [],
+  segValues: {
+    'seg-type': '管理违章',
+    'seg-nature': '一般违章',
+    'seg-rectify': '已整改',
+    'seg-network': '配网',
+    'seg-seq': '1',
+    'seg-method': '现场检查'
+  },
+  ocrTarget: null,
+  ocrType: null,
+  previewSource: null
+};
+
+// 百度OCR配置（填入你的密钥）
+const BAIDU_OCR = {
+  apiKey: 'WOU8VHplHJKiWaNpWP2f0SuG',
+  secretKey: 'shhRfcWGhZb5vclN6EzoPbPQw8gMHrKB',
+  accessToken: null,
+  tokenExpire: 0
+};
+
+// ========== 初始化 ==========
+function init() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  document.getElementById('off-remark').value = `${y}.${m}.${d}`;
+  document.getElementById('on-time').value = `${y}年${m}月${d}日`;
+
+  // 监听被检查单位选择
+  document.getElementById('on-unit').addEventListener('change', function(){
+    const custom = document.getElementById('on-unit-custom');
+    custom.style.display = this.value === '其他' ? 'block' : 'none';
+  });
+
+  loadRecords();
+}
+
+// ========== 页面切换 ==========
+function goPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ========== 分段选择 ==========
+function setSeg(groupId, el, value) {
+  document.querySelectorAll(`#${groupId} .seg-item`).forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  STATE.segValues[groupId] = value;
+}
+
+// ========== 照片上传（单张，可删除/替换） ==========
+function setPhoto(containerId, inputId, key) {
+  const file = document.getElementById(inputId).files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const src = e.target.result;
+    // 存储：替换旧照片
+    if(key === 'violation') STATE.offlinePhotos.violation = [{src, name: file.name}];
+    else if(key === 'rectify') STATE.offlinePhotos.rectify = [{src, name: file.name}];
+    else STATE.onlinePhotos = [{src, name: file.name}];
+
+    renderPhoto(containerId, src, key);
+  };
+  reader.readAsDataURL(file);
+  document.getElementById(inputId).value = '';
+}
+
+function renderPhoto(containerId, src, key) {
+  const container = document.getElementById(containerId);
+  const label = container.querySelector('label');
+  // 移除旧预览
+  container.querySelectorAll('.photo-wrap').forEach(el => el.remove());
+  // 创建预览wrap（含删除和替换按钮）
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-wrap';
+  wrap.innerHTML = `
+    <img src="${src}" alt="photo">
+    <button class="photo-del" title="删除">×</button>
+    <button class="photo-replace" title="重新上传">重新上传</button>
+  `;
+  wrap.querySelector('.photo-del').onclick = (e) => {
+    e.stopPropagation();
+    if(!confirm('删除此照片？')) return;
+    wrap.remove();
+    label.classList.remove('hidden');
+    if(key === 'violation') STATE.offlinePhotos.violation = [];
+    else if(key === 'rectify') STATE.offlinePhotos.rectify = [];
+    else STATE.onlinePhotos = [];
+  };
+  wrap.querySelector('.photo-replace').onclick = (e) => {
+    e.stopPropagation();
+    // 触发文件选择
+    const inputMap = {violation:'file-violation', rectify:'file-rectify', online:'file-online'};
+    document.getElementById(inputMap[key]).click();
+  };
+  container.insertBefore(wrap, label);
+  label.classList.add('hidden');
+}
+
+// ========== OCR 识别 ==========
+function ocrRecognize(targetId, ocrType) {
+  STATE.ocrTarget = targetId;
+  STATE.ocrType = ocrType;
+  document.getElementById('ocr-preview').style.display = 'none';
+  document.getElementById('ocr-result-area').style.display = 'none';
+  document.getElementById('ocr-confirm-btn').style.display = 'none';
+  document.getElementById('ocr-file').value = '';
+
+  // 设置提示文字
+  const tipEl = document.getElementById('ocr-tip');
+  const uploadLabel = document.getElementById('ocr-upload-label');
+  if(ocrType === 'site' || ocrType === 'violation') {
+    tipEl.textContent = '提示：请上传"作业计划详情"截图，自动提取"计划名称"后的文字';
+    uploadLabel.textContent = '点击选择计划截图';
+  } else if(ocrType === 'clause') {
+    tipEl.textContent = '提示：请上传"违章信息"弹窗截图，自动提取"依据"后的文字';
+    uploadLabel.textContent = '点击选择依据截图';
+  } else {
+    tipEl.textContent = '';
+    uploadLabel.textContent = '点击选择新图片识别';
+  }
+
+  // 检查是否已有上传照片可用
+  const existingDiv = document.getElementById('ocr-use-existing');
+  let hasPhoto = false;
+  let photoSrc = null;
+
+  // 根据字段判断使用哪张照片
+  if(ocrType === 'site' || ocrType === 'violation') {
+    // 工程现场名称识别：优先用违章照片
+    if(STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
+  }
+  if(!hasPhoto && ocrType === 'clause') {
+    // 依据条款：也可用违章照片或线上照片
+    if(STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
+    else if(STATE.onlinePhotos.length > 0) { hasPhoto = true; photoSrc = STATE.onlinePhotos[0].src; }
+  }
+
+  if(hasPhoto) {
+    existingDiv.style.display = 'block';
+    STATE.ocrExistingSrc = photoSrc;
+  } else {
+    existingDiv.style.display = 'none';
+    STATE.ocrExistingSrc = null;
+  }
+
+  document.getElementById('ocr-modal').classList.add('show');
+}
+
+function useExistingPhoto() {
+  if(!STATE.ocrExistingSrc) return;
+  const preview = document.getElementById('ocr-preview');
+  preview.src = STATE.ocrExistingSrc;
+  preview.style.display = 'block';
+  showLoading('正在识别文字...');
+  callBaiduOcr(STATE.ocrExistingSrc).then(text => {
+    const processed = processOcrText(text, STATE.ocrType);
+    document.getElementById('ocr-result-text').value = processed;
+    document.getElementById('ocr-result-area').style.display = 'block';
+    document.getElementById('ocr-confirm-btn').style.display = 'block';
+  }).catch(err => {
+    showToast('识别失败：' + err.message);
+  }).finally(() => {
+    hideLoading();
+  });
+}
+
+function closeOcr(e) {
+  if(e && e.target !== document.getElementById('ocr-modal')) return;
+  document.getElementById('ocr-modal').classList.remove('show');
+}
+
+async function handleOcrFile() {
+  const file = document.getElementById('ocr-file').files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const src = e.target.result;
+    const preview = document.getElementById('ocr-preview');
+    preview.src = src;
+    preview.style.display = 'block';
+    showLoading('正在识别文字...');
+    try {
+      const text = await callBaiduOcr(src);
+      const processed = processOcrText(text, STATE.ocrType);
+      document.getElementById('ocr-result-text').value = processed;
+      document.getElementById('ocr-result-area').style.display = 'block';
+      document.getElementById('ocr-confirm-btn').style.display = 'block';
+    } catch(err) {
+      showToast('识别失败：' + err.message);
+    } finally {
+      hideLoading();
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function processOcrText(text, type) {
+  const fullText = text;
+
+  // ===== 专项提取（基于样图格式自动识别） =====
+
+  // 1. 提取"计划名称："后的文字（用于计划详情截图）
+  if (type === 'site' || type === 'violation') {
+    const planMatch = fullText.match(/计划名称[：:]\s*([^\n]+)/);
+    if (planMatch) {
+      return planMatch[1].trim();
+    }
+  }
+
+  // 2. 提取"依据："后的文字（用于违章信息弹窗截图）
+  if (type === 'clause') {
+    const clauseMatch = fullText.match(/依据[：:]\s*([\s\S]+)/);
+    if (clauseMatch) {
+      let result = clauseMatch[1].trim().replace(/\n\s*/g, ' ');
+      return result;
+    }
+  }
+
+  // ===== Fallback: 原有智能提取 =====
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if(type === 'violation' || type === 'site') {
+    // 提取计划名称后段，通常是工程现场名称
+    // 尝试找包含"工程"、"线路"、"变压器"等关键词的行
+    const keywords = ['工程','线路','变压器','电缆','开关','配电','供电','改造','安装','检修'];
+    for(const line of lines) {
+      for(const kw of keywords) {
+        if(line.includes(kw) && line.length > 5 && line.length < 60) return line;
+      }
+    }
+    return lines.join('；');
+  } else if(type === 'clause') {
+    // 提取依据条款，通常是较长的规定文字
+    const clausePatterns = [/第\d+[\.\d]*条/, /\d+\.\d+/, /GB|DL|Q\/|安规/];
+    for(const line of lines) {
+      for(const pat of clausePatterns) {
+        if(pat.test(line)) return line;
+      }
+    }
+    return lines.slice(0, 3).join('\n');
+  }
+  return lines.join('\n');
+}
+
+async function getBaiduToken() {
+  if(BAIDU_OCR.accessToken && Date.now() < BAIDU_OCR.tokenExpire) return BAIDU_OCR.accessToken;
+  if(BAIDU_OCR.apiKey === 'YOUR_API_KEY') return 'DEMO_TOKEN';
+  // 部署到HTTPS后，微信浏览器可直接调用百度API（无需代理）
+  const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_OCR.apiKey}&client_secret=${BAIDU_OCR.secretKey}`;
+  const res = await fetch(url, {method:'POST'});
+  const data = await res.json();
+  if(!data.access_token) throw new Error('获取Token失败：' + JSON.stringify(data));
+  BAIDU_OCR.accessToken = data.access_token;
+  BAIDU_OCR.tokenExpire = Date.now() + (data.expires_in - 60) * 1000;
+  return BAIDU_OCR.accessToken;
+}
+
+async function callBaiduOcr(base64Src) {
+  if(BAIDU_OCR.apiKey === 'YOUR_API_KEY') {
+    return '镇安县110kV绕镇线N16#杆接引线工程\n第3.2.4条：高处作业人员应系安全带\n严禁违章操作';
+  }
+  const token = await getBaiduToken();
+  const base64 = base64Src.split(',')[1];
+  const body = new URLSearchParams();
+  body.append('image', base64);
+  body.append('detect_direction', 'false');
+  body.append('paragraph', 'false');
+  body.append('probability', 'false');
+  const res = await fetch(`https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token=${token}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  });
+  const data = await res.json();
+  if(data.error_code) throw new Error(data.error_msg || '识别失败');
+  return (data.words_result || []).map(w => w.words).join('\n');
+}
+
+function applyOcr() {
+  const text = document.getElementById('ocr-result-text').value.trim();
+  if(text && STATE.ocrTarget) {
+    document.getElementById(STATE.ocrTarget).value = text;
+  }
+  document.getElementById('ocr-modal').classList.remove('show');
+}
+
+// ========== 预览 ==========
+function getOfflineData() {
+  return {
+    site: document.getElementById('off-site').value.trim(),
+    violation: document.getElementById('off-violation').value.trim(),
+    clause: document.getElementById('off-clause').value.trim(),
+    remark: document.getElementById('off-remark').value,
+    type: STATE.segValues['seg-type'],
+    nature: STATE.segValues['seg-nature'],
+    rectify: STATE.segValues['seg-rectify'],
+    network: STATE.segValues['seg-network'],
+    seq: STATE.segValues['seg-seq'],
+    photos: STATE.offlinePhotos
+  };
+}
+
+function getOnlineData() {
+  const unitSel = document.getElementById('on-unit').value;
+  const unit = unitSel === '其他' ? document.getElementById('on-unit-custom').value.trim() : unitSel;
+  return {
+    seq: document.getElementById('on-seq').value,
+    unit: unit || '国网镇安县供电公司',
+    method: STATE.segValues['seg-method'],
+    site: document.getElementById('on-site').value.trim(),
+    violation: document.getElementById('on-violation').value.trim(),
+    clause: document.getElementById('on-clause').value.trim(),
+    time: document.getElementById('on-time').value,
+    photos: STATE.onlinePhotos
+  };
+}
+
+function syncCustomUnit() {
+  // 同步自定义单位输入
+}
+
+function previewOffline() {
+  const d = getOfflineData();
+  if(!d.site) { showToast('请填写工程现场名称'); return; }
+  if(!d.violation) { showToast('请填写违章情况'); return; }
+  STATE.previewSource = 'offline';
+  renderPreview([
+    {k:'工程现场名称', v:d.site},
+    {k:'存在违章', v:d.violation},
+    {k:'依据条款', v:d.clause||'—'},
+    {k:'违章类型', v:d.type},
+    {k:'违章性质', v:d.nature},
+    {k:'整改情况', v:d.rectify},
+    {k:'主配网', v:d.network},
+    {k:'序号', v:d.seq},
+    {k:'备注', v:d.remark},
+  ], d.photos.violation.concat(d.photos.rectify), '线下违章预览', 'page-offline', '#1677ff', generateExcel);
+}
+
+function previewOnline() {
+  const d = getOnlineData();
+  if(!d.site) { showToast('请填写作业现场'); return; }
+  if(!d.violation) { showToast('请填写违章情况'); return; }
+  STATE.previewSource = 'online';
+  renderPreview([
+    {k:'序号', v:d.seq},
+    {k:'被检查单位', v:d.unit},
+    {k:'检查方式', v:d.method},
+    {k:'作业现场', v:d.site},
+    {k:'发现违章情况', v:d.violation},
+    {k:'违反规程条例', v:d.clause||'—'},
+    {k:'时间', v:d.time},
+  ], d.photos, '线上违章预览', 'page-online', '#722ed1', generateWord);
+}
+
+function renderPreview(fields, photos, title, backPage, color, genFn) {
+  const header = document.getElementById('preview-header');
+  header.style.background = color;
+  document.getElementById('preview-title').textContent = title;
+  document.getElementById('preview-back').onclick = () => goPage(backPage);
+  document.getElementById('preview-edit-btn').onclick = () => goPage(backPage);
+  document.getElementById('preview-gen-btn').style.background = color;
+  document.getElementById('preview-gen-btn').onclick = genFn;
+
+  let html = '<div class="preview-card">';
+  fields.forEach(f => {
+    html += `<div class="preview-row"><div class="preview-key">${f.k}</div><div class="preview-val">${f.v}</div></div>`;
+  });
+  html += '</div>';
+
+      if(photos.length > 0) {
+    html += '<div class="preview-card"><div class="form-card-header"><span class="icon">🖼️</span><span>已上传照片</span></div><div class="photo-preview-grid">';
+    photos.forEach(p => {
+      html += `<img src="${p.src}" alt="photo">`;
+    });
+    html += '</div></div>';
+  }
+
+  document.getElementById('preview-content').innerHTML = html;
+  goPage('page-preview');
+}
+
+// ========== 生成 Excel (线下违章) ==========
+// 模板结构：第1行标题，第2行表头，第3-4行数据（合并2行），违章影像在F列，可嵌入照片
+async function generateExcel() {
+  const d = getOfflineData();
+  if(!d.site) { showToast('请填写作业现场名称'); goPage('page-offline'); return; }
+  if(!d.violation) { showToast('请填写违章情况'); goPage('page-offline'); return; }
+
+  showLoading('正在生成 Excel 文件...');
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = '安全吹哨人';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('违章统计表');
+
+    // 列宽（对齐真实模板）
+    ws.columns = [
+      {width: 10.125},  // A 序号
+      {width: 10.625},  // B 主配网
+      {width: 29.125},  // C 作业现场名称
+      {width: 18.625},  // D 存在违章
+      {width: 36.0},    // E 依据条款
+      {width: 45.5},    // F 违章影像（照片列）
+      {width: 15.0},    // G 整改情况
+      {width: 11.625},  // H 违章类型
+      {width: 12.125},  // I 违章性质
+      {width: 14.625},  // J 备注
+    ];
+
+    // ---- 第1行：标题 ----
+    ws.mergeCells('A1:J1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = '配网分部检查在监项目作业现场发现的违章、问题';
+    titleCell.font = {size: 18, bold: true, name: '宋体'};
+    titleCell.alignment = {horizontal: 'center', vertical: 'middle'};
+    ws.getRow(1).height = 23.25;
+
+    // ---- 第2行：表头 ----
+    const headers = ['序号','主配网','作业现场名称','存在违章','依据条款','违章影像','整改情况','违章类型','违章性质','备注'];
+    const headerRow = ws.addRow(headers);
+    headerRow.height = 18.75;
+    headerRow.eachCell(cell => {
+      cell.font = {bold: true, name: '宋体', size: 14, color:{argb:'FF000000'}};
+      cell.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true};
+      cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    });
+
+    // ---- 第3-4行：数据（合并2行，模拟模板格式）----
+    // 先写入数据
+    const row3Data = [
+      parseInt(d.seq) || 1,
+      d.network,
+      d.site,
+      d.violation,
+      d.clause || '',
+      '',  // F列：违章影像（照片嵌入）
+      d.rectify,
+      d.type,
+      d.nature,
+      d.remark
+    ];
+    const dataRow3 = ws.addRow(row3Data);
+    dataRow3.height = 154.5;
+    dataRow3.eachCell((cell, colNum) => {
+      const centerCols = [1,2,7,8,9,10]; // 序号/主配网/整改/类型/性质/备注居中
+      cell.alignment = {horizontal: centerCols.includes(colNum) ? 'center' : 'left', vertical: 'middle', wrapText: true};
+      cell.font = {name: '宋体', size: 14};
+      cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    });
+
+    // 合并第3-4行（除了F列保留给照片）
+    const mergeCols = ['A','B','C','D','E','G','H','I','J'];
+    for(const col of mergeCols) {
+      ws.mergeCells(`${col}3:${col}4`);
+    }
+
+    // 违章影像列（F列）：两行都留空用于放照片
+    ws.getCell('F3').value = '';
+    ws.getCell('F4').value = '';
+    ws.getCell('F3').border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    ws.getCell('F4').border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    ws.getRow(4).height = 154.5;
+
+    // 整改情况着色
+    const rectifyCell = ws.getCell('G3');
+    if(d.rectify === '已整改') {
+      rectifyCell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF92D050'}};
+      rectifyCell.font = {name:'宋体',size:14};
+    } else {
+      rectifyCell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFF0000'}};
+      rectifyCell.font = {name:'宋体',size:14,color:{argb:'FFFFFFFF'}};
+    }
+
+    // 严重违章：I列着色
+    if(d.nature === '严重违章') {
+      const natCell = ws.getCell('I3');
+      natCell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFF0000'}};
+      natCell.font = {name:'宋体',size:14,color:{argb:'FFFFFFFF'}};
+    }
+
+    // ---- 嵌入违章照片（两行合并后，照片放F3位置即可覆盖）----
+    const allPhotos = [...d.photos.violation, ...d.photos.rectify];
+    if(allPhotos.length > 0) {
+      // 违章照片
+      if(d.photos.violation.length > 0) {
+        for(let i = 0; i < d.photos.violation.length; i++) {
+          const photo = d.photos.violation[i];
+          const ext = photo.src.split(';')[0].split('/')[1] === 'image/png' ? 'png' : 'jpeg';
+          const imgId = wb.addImage({base64: photo.src.split(',')[1], extension: ext});
+          // 照片放入F列，F3是违章照片起始位置
+          ws.addImage(imgId, {tl:{col:5,row:2}, ext:{width:200,height:150}});
+        }
+      }
+      // 整改照片（放F4位置）
+      if(d.photos.rectify.length > 0) {
+        for(let i = 0; i < d.photos.rectify.length; i++) {
+          const photo = d.photos.rectify[i];
+          const ext = photo.src.split(';')[0].split('/')[1] === 'image/png' ? 'png' : 'jpeg';
+          const imgId = wb.addImage({base64: photo.src.split(',')[1], extension: ext});
+          ws.addImage(imgId, {tl:{col:5,row:3}, ext:{width:200,height:150}});
+        }
+      }
+    }
+
+    // ---- 导出 ----
+    const buf = await wb.xlsx.writeBuffer();
+    const dateStr = d.remark.replace(/\./g,'-');
+    const fileName = `商洛配电网违章统计表（镇安分部）${dateStr}.xlsx`;
+    saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), fileName);
+
+    saveRecord({type:'offline', site:d.site, violation:d.violation, remark:d.remark, fileName, time:Date.now()});
+    showToast('Excel 文件已生成，请在下载中查看');
+    setTimeout(() => goPage('page-home'), 1500);
+  } catch(e) {
+    console.error(e);
+    showToast('生成失败：' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+// ========== 生成 Word (线上违章) ==========
+async function generateWord() {
+  const d = getOnlineData();
+  if(!d.site) { showToast('请填写作业现场'); goPage('page-online'); return; }
+  if(!d.violation) { showToast('请填写违章情况'); goPage('page-online'); return; }
+
+  showLoading('正在生成 Word 文件...');
+  try {
+    const { Document, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel,
+            AlignmentType, BorderStyle, WidthType, VerticalAlign, ImageRun, Packer,
+            convertInchesToTwip, ShadingType } = docx;
+
+    // 将 base64 图片转为 ArrayBuffer
+    async function b64toAB(src) {
+      const res = await fetch(src);
+      return await res.arrayBuffer();
+    }
+
+    // 表格边框样式
+    const BORDER = {
+      top: {style: BorderStyle.SINGLE, size: 6, color: '000000'},
+      bottom: {style: BorderStyle.SINGLE, size: 6, color: '000000'},
+      left: {style: BorderStyle.SINGLE, size: 6, color: '000000'},
+      right: {style: BorderStyle.SINGLE, size: 6, color: '000000'},
+    };
+
+    function hCell(text, width) {
+      return new TableCell({
+        children: [new Paragraph({children: [new TextRun({text, bold:true, size:22, font:'宋体'})], alignment: AlignmentType.CENTER})],
+        width: {size: width, type: WidthType.DXA},
+        shading: {type:ShadingType.SOLID, color:'4472C4', fill:'4472C4'},
+        borders: BORDER,
+        verticalAlign: VerticalAlign.CENTER,
+      });
+    }
+    function dCell(text, width, center) {
+      return new TableCell({
+        children: [new Paragraph({children: [new TextRun({text:String(text||''), size:22, font:'宋体'})], alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT})],
+        width: {size: width, type: WidthType.DXA},
+        borders: BORDER,
+        verticalAlign: VerticalAlign.CENTER,
+      });
+    }
+
+    const children = [];
+
+    // 大标题（对齐模板：标题+日期在同一行，右对齐）
+    children.push(new Paragraph({
+      children: [
+        new TextRun({text: '商洛配网监理项目部现场违章登记表', bold:true, size:28, font:'黑体'}),
+        new TextRun({text: '    时间：' + d.time, size:24, font:'宋体'}),
+      ],
+      alignment: AlignmentType.RIGHT,
+      spacing: {before:0, after:300},
+    }));
+
+    // 主数据表格（7列，对齐真实模板）
+    // 列宽（DXA单位，约1cm=567dxa）：序号500，被检查单位1500，检查方式1200，作业现场2200，发现违章3000，违反规程2000，违章影响资料2000
+    const COL_W = [500, 1500, 1200, 2200, 3000, 2000, 2000];
+    const headerRow = new TableRow({
+      children: [
+        hCell('序号', COL_W[0]),
+        hCell('被检查单位', COL_W[1]),
+        hCell('检查方式', COL_W[2]),
+        hCell('作业现场', COL_W[3]),
+        hCell('发现违章情况', COL_W[4]),
+        hCell('违反规程条例', COL_W[5]),
+        hCell('违章影响资料', COL_W[6]),
+      ]
+    });
+    const dataRow2 = new TableRow({
+      children: [
+        dCell(d.seq, COL_W[0], true),
+        dCell(d.unit, COL_W[1], true),
+        dCell(d.method, COL_W[2], true),
+        dCell(d.site, COL_W[3], false),
+        dCell(d.violation, COL_W[4], false),
+        dCell(d.clause, COL_W[5], false),
+        dCell('（见附件）', COL_W[6], true),
+      ],
+      tableHeader: false,
+    });
+
+    children.push(new Table({
+      rows: [headerRow, dataRow2],
+      width: {size: 9700, type: WidthType.DXA},
+    }));
+
+    // 照片区域（违章影响资料附件）
+    if(d.photos.length > 0) {
+      children.push(new Paragraph({
+        children: [new TextRun({text: '违章影像资料附件', bold:true, size:22, font:'宋体'})],
+        spacing: {before:300, after:200},
+      }));
+      for(const p of d.photos) {
+        const ab = await b64toAB(p.src);
+        children.push(new Paragraph({
+          children: [new ImageRun({data: ab, transformation: {width:480, height:360}, type:'jpeg'})],
+          spacing: {before:100, after:100},
+        }));
+      }
+    }
+
+    // 落款
+    children.push(new Paragraph({
+      children: [new TextRun({text: '商洛配网监理项目部', size:22, font:'宋体'})],
+      alignment: AlignmentType.RIGHT,
+      spacing: {before:600},
+    }));
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: {top:convertInchesToTwip(1), bottom:convertInchesToTwip(1), left:convertInchesToTwip(1.25), right:convertInchesToTwip(1.25)}
+          }
+        },
+        children
+      }]
+    });
+
+    const buf = await Packer.toBlob(doc);
+    const dateStr = d.time.replace(/年|月/g,'-').replace(/日/,'');
+    const fileName = `商洛配网监理项目部现场违章登记表${dateStr}.docx`;
+    saveAs(buf, fileName);
+
+    saveRecord({type:'online', site:d.site, violation:d.violation, remark:d.time, fileName, time: Date.now()});
+    showToast('Word 文件已生成，请在下载中查看');
+    setTimeout(() => goPage('page-home'), 1500);
+  } catch(e) {
+    console.error(e);
+    showToast('生成失败：' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+// ========== 记录管理 ==========
+function saveRecord(record) {
+  const key = 'whistleblower_records';
+  let records = [];
+  try { records = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  records.unshift(record);
+  if(records.length > 50) records = records.slice(0,50);
+  localStorage.setItem(key, JSON.stringify(records));
+  loadRecords();
+}
+
+function loadRecords() {
+  const key = 'whistleblower_records';
+  let records = [];
+  try { records = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  const container = document.getElementById('records-list');
+  if(!records.length) {
+    container.innerHTML = '<div class="empty-tip">暂无记录，点击上方按钮新建</div>';
+    return;
+  }
+  container.innerHTML = records.map((r, i) => `
+    <div class="record-item">
+      <div class="record-dot ${r.type === 'offline' ? 'dot-offline' : 'dot-online'}"></div>
+      <div class="record-info">
+        <div class="record-name">${r.site || '未命名'}</div>
+        <div class="record-meta">${r.type === 'offline' ? '线下违章' : '线上违章'} · ${r.remark || ''}</div>
+      </div>
+      <div class="record-actions">
+        <button class="btn-small btn-del" onclick="deleteRecord(${i},event)">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteRecord(index, event) {
+  event.stopPropagation();
+  if(!confirm('确认删除此记录？')) return;
+  const key = 'whistleblower_records';
+  let records = [];
+  try { records = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  records.splice(index, 1);
+  localStorage.setItem(key, JSON.stringify(records));
+  loadRecords();
+  showToast('记录已删除');
+}
+
+// ========== 工具函数 ==========
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+function showLoading(text) {
+  document.getElementById('loading-text').textContent = text || '正在处理...';
+  document.getElementById('loading').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loading').classList.remove('show');
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>
