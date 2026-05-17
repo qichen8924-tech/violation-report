@@ -398,10 +398,10 @@ input[type=file]{display:none}
     <img id="ocr-preview" class="modal-img" style="display:none">
     <div id="ocr-result-area" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:13px;color:#86909c">识别结果（可编辑）：</span>
-        <button onclick="showRawOcr()" style="font-size:11px;color:#1677ff;background:none;border:none;cursor:pointer;padding:2px 6px">查看原始识别</button>
+        <span style="font-size:13px;color:#86909c">原始识别结果（可直接复制）：</span>
+        <button onclick="showRawOcr()" style="font-size:11px;color:#1677ff;background:none;border:none;cursor:pointer;padding:2px 6px">查看详情</button>
       </div>
-      <textarea class="form-textarea" id="ocr-result-text" rows="3" style="min-height:60px"></textarea>
+      <textarea class="form-textarea" id="ocr-result-text" rows="5" style="min-height:100px;font-size:13px"></textarea>
     </div>
     <div id="ocr-raw-area" style="display:none;margin-top:8px">
       <div style="font-size:13px;color:#86909c;margin-bottom:6px">百度原始识别：</div>
@@ -586,6 +586,7 @@ function useExistingPhoto() {
   preview.style.display = 'block';
   showLoading('正在识别文字...');
   callBaiduOcr(STATE.ocrExistingSrc).then(text => {
+    OCR_RAW_TEXT = text; // 保存原始结果供调试
     const processed = processOcrText(text, STATE.ocrType);
     document.getElementById('ocr-result-text').value = processed;
     document.getElementById('ocr-result-area').style.display = 'block';
@@ -630,72 +631,9 @@ async function handleOcrFile() {
 }
 
 function processOcrText(text, type) {
-  const fullText = text;
-
-  // ===== 调试：显示原始识别结果 =====
-  console.log('[OCR原始结果]', type, JSON.stringify(fullText));
-
-  // ===== 专项提取（基于样图格式自动识别） =====
-
-  // 1. 提取"计划名称："后的文字（用于计划详情截图）
-  if (type === 'site' || type === 'violation') {
-    // 宽松匹配：找"计划名称"后面跟的任何文字
-    const planMatch = fullText.match(/计划名称[：:\s]+([^\n]{5,})/);
-    if (planMatch) {
-      return planMatch[1].trim();
-    }
-    // 更宽松：只要行包含"计划名称"后面有内容
-    const lines = fullText.split('\n');
-    for(const line of lines) {
-      if(line.includes('计划名称') && line.length > 6) {
-        const idx = line.indexOf('计划名称');
-        const after = line.substring(idx + 4).replace(/[：:\s]+/g, '').trim();
-        if(after.length > 3) return after;
-      }
-    }
-  }
-
-  // 2. 提取"依据："后的文字（用于违章信息弹窗截图）
-  if (type === 'clause') {
-    const clauseMatch = fullText.match(/依据[：:]\s*([\s\S]{10,})/);
-    if (clauseMatch) {
-      let result = clauseMatch[1].trim().replace(/\n\s*/g, ' ');
-      return result;
-    }
-    // 宽松匹配
-    const lines = fullText.split('\n');
-    for(const line of lines) {
-      if(line.includes('依据') && line.length > 4) {
-        const idx = line.indexOf('依据');
-        const after = line.substring(idx + 2).replace(/[：:\s]+/g, '').trim();
-        if(after.length > 5) return after;
-      }
-    }
-  }
-
-  // ===== Fallback: 原有智能提取 =====
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if(type === 'violation' || type === 'site') {
-    // 提取计划名称后段，通常是工程现场名称
-    // 尝试找包含"工程"、"线路"、"变压器"等关键词的行
-    const keywords = ['工程','线路','变压器','电缆','开关','配电','供电','改造','安装','检修'];
-    for(const line of lines) {
-      for(const kw of keywords) {
-        if(line.includes(kw) && line.length > 5 && line.length < 60) return line;
-      }
-    }
-    return lines.join('；');
-  } else if(type === 'clause') {
-    // 提取依据条款，通常是较长的规定文字
-    const clausePatterns = [/第\d+[\.\d]*条/, /\d+\.\d+/, /GB|DL|Q\/|安规/];
-    for(const line of lines) {
-      for(const pat of clausePatterns) {
-        if(pat.test(line)) return line;
-      }
-    }
-    return lines.slice(0, 3).join('\n');
-  }
-  return lines.join('\n');
+  // 直接返回原始识别结果，让用户自己看、自己填
+  // （用户反馈专项提取始终失败，改为直接展示原始结果）
+  return text;
 }
 
 async function getBaiduToken() {
