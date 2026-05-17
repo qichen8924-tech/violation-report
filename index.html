@@ -397,8 +397,15 @@ input[type=file]{display:none}
     </label>
     <img id="ocr-preview" class="modal-img" style="display:none">
     <div id="ocr-result-area" style="display:none">
-      <div style="font-size:13px;color:#86909c;margin-bottom:6px">识别结果（可编辑）：</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:#86909c">识别结果（可编辑）：</span>
+        <button onclick="showRawOcr()" style="font-size:11px;color:#1677ff;background:none;border:none;cursor:pointer;padding:2px 6px">查看原始识别</button>
+      </div>
       <textarea class="form-textarea" id="ocr-result-text" rows="3" style="min-height:60px"></textarea>
+    </div>
+    <div id="ocr-raw-area" style="display:none;margin-top:8px">
+      <div style="font-size:13px;color:#86909c;margin-bottom:6px">百度原始识别：</div>
+      <div id="ocr-raw-text" style="background:#f5f5f5;border-radius:8px;padding:10px;font-size:12px;color:#666;white-space:pre-wrap;max-height:120px;overflow-y:auto;line-height:1.6"></div>
     </div>
     <div class="modal-btns">
       <button class="modal-btn modal-btn-cancel" onclick="closeOcr(null)">取消</button>
@@ -607,8 +614,10 @@ async function handleOcrFile() {
     showLoading('正在识别文字...');
     try {
       const text = await callBaiduOcr(src);
+      OCR_RAW_TEXT = text; // 保存原始结果供调试
       const processed = processOcrText(text, STATE.ocrType);
-      document.getElementById('ocr-result-text').value = processed;
+      // 如果提取为空，显示原始结果供手动复制
+      document.getElementById('ocr-result-text').value = processed || text;
       document.getElementById('ocr-result-area').style.display = 'block';
       document.getElementById('ocr-confirm-btn').style.display = 'block';
     } catch(err) {
@@ -623,22 +632,44 @@ async function handleOcrFile() {
 function processOcrText(text, type) {
   const fullText = text;
 
+  // ===== 调试：显示原始识别结果 =====
+  console.log('[OCR原始结果]', type, JSON.stringify(fullText));
+
   // ===== 专项提取（基于样图格式自动识别） =====
 
   // 1. 提取"计划名称："后的文字（用于计划详情截图）
   if (type === 'site' || type === 'violation') {
-    const planMatch = fullText.match(/计划名称[：:]\s*([^\n]+)/);
+    // 宽松匹配：找"计划名称"后面跟的任何文字
+    const planMatch = fullText.match(/计划名称[：:\s]+([^\n]{5,})/);
     if (planMatch) {
       return planMatch[1].trim();
+    }
+    // 更宽松：只要行包含"计划名称"后面有内容
+    const lines = fullText.split('\n');
+    for(const line of lines) {
+      if(line.includes('计划名称') && line.length > 6) {
+        const idx = line.indexOf('计划名称');
+        const after = line.substring(idx + 4).replace(/[：:\s]+/g, '').trim();
+        if(after.length > 3) return after;
+      }
     }
   }
 
   // 2. 提取"依据："后的文字（用于违章信息弹窗截图）
   if (type === 'clause') {
-    const clauseMatch = fullText.match(/依据[：:]\s*([\s\S]+)/);
+    const clauseMatch = fullText.match(/依据[：:]\s*([\s\S]{10,})/);
     if (clauseMatch) {
       let result = clauseMatch[1].trim().replace(/\n\s*/g, ' ');
       return result;
+    }
+    // 宽松匹配
+    const lines = fullText.split('\n');
+    for(const line of lines) {
+      if(line.includes('依据') && line.length > 4) {
+        const idx = line.indexOf('依据');
+        const after = line.substring(idx + 2).replace(/[：:\s]+/g, '').trim();
+        if(after.length > 5) return after;
+      }
     }
   }
 
@@ -699,6 +730,20 @@ async function callBaiduOcr(base64Src) {
   const data = await res.json();
   if(data.error_code) throw new Error(data.error_msg || '识别失败');
   return (data.words_result || []).map(w => w.words).join('\n');
+}
+
+// 存储原始识别结果
+var OCR_RAW_TEXT = '';
+
+function showRawOcr() {
+  const el = document.getElementById('ocr-raw-area');
+  const txt = document.getElementById('ocr-raw-text');
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    txt.textContent = OCR_RAW_TEXT || '（无原始数据）';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function applyOcr() {
