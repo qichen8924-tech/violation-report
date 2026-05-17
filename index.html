@@ -542,10 +542,10 @@ function ocrRecognize(targetId, ocrType) {
   const tipEl = document.getElementById('ocr-tip');
   const uploadLabel = document.getElementById('ocr-upload-label');
   if(ocrType === 'site' || ocrType === 'violation') {
-    tipEl.textContent = '提示：请上传"作业计划详情"截图，自动提取"计划名称"后的文字';
+    tipEl.textContent = '提示：请上传"作业计划详情"截图，识别结果可直接复制填入';
     uploadLabel.textContent = '点击选择计划截图';
   } else if(ocrType === 'clause') {
-    tipEl.textContent = '提示：请上传"违章信息"弹窗截图，自动提取"依据"后的文字';
+    tipEl.textContent = '提示：请上传"违章信息"弹窗截图，识别结果可直接复制填入';
     uploadLabel.textContent = '点击选择依据截图';
   } else {
     tipEl.textContent = '';
@@ -558,14 +558,19 @@ function ocrRecognize(targetId, ocrType) {
   let photoSrc = null;
 
   // 根据字段判断使用哪张照片
-  if(ocrType === 'site' || ocrType === 'violation') {
-    // 工程现场名称识别：优先用违章照片
+  if(ocrType === 'violation') {
+    // 线下违章：作业现场名称 → 用线下违章照片
     if(STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
   }
-  if(!hasPhoto && ocrType === 'clause') {
-    // 依据条款：也可用违章照片或线上照片
-    if(STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
-    else if(STATE.onlinePhotos.length > 0) { hasPhoto = true; photoSrc = STATE.onlinePhotos[0].src; }
+  if(ocrType === 'site') {
+    // 线上违章：作业现场 → 用线上违章照片（修复：之前错误检查了offlinePhotos）
+    if(STATE.onlinePhotos.length > 0) { hasPhoto = true; photoSrc = STATE.onlinePhotos[0].src; }
+    if(!hasPhoto && STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
+  }
+  if(ocrType === 'clause') {
+    // 依据条款：优先线上照片，备用线下违章照片
+    if(STATE.onlinePhotos.length > 0) { hasPhoto = true; photoSrc = STATE.onlinePhotos[0].src; }
+    else if(STATE.offlinePhotos.violation.length > 0) { hasPhoto = true; photoSrc = STATE.offlinePhotos.violation[0].src; }
   }
 
   if(hasPhoto) {
@@ -940,10 +945,17 @@ async function generateWord() {
             AlignmentType, BorderStyle, WidthType, VerticalAlign, ImageRun, Packer,
             convertInchesToTwip, ShadingType } = docx;
 
-    // 将 base64 图片转为 ArrayBuffer
+    // 将 base64 图片转为 ArrayBuffer（兼容微信浏览器 data URI）
     async function b64toAB(src) {
-      const res = await fetch(src);
-      return await res.arrayBuffer();
+      // data URI: data:image/jpeg;base64,/9j/4AAQ...
+      const base64 = src.split(',')[1];
+      if(!base64) return new ArrayBuffer(0);
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for(let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
 
     // 表格边框样式
